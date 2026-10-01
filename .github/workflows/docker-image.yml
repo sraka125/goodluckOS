@@ -1,0 +1,42 @@
+name: Build goodluckOS Complete Image
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Увеличиваем таймаут, так как сборка прошивки целиком может занять много времени
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Step 1. Build kernel
+        working-directory: ./kernel
+        run: |
+          docker build -t goodluck-builder .
+          docker run --rm -v $(pwd):/workspace goodluck-builder
+
+      - name: Step 2. Build final OS image
+        working-directory: ./image
+        run: |
+          # Если для сборки image/ требуется запуск скрипта (возможно, тоже через docker или напрямую в окружении runner'а)
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: goodluckos-final-image
+          path: |
+            kernel/out/android_boot.img
+            image/out/*.img
+            image/out/*.zip
